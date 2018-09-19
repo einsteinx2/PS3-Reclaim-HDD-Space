@@ -1,0 +1,269 @@
+#!/bin/bash --norc
+
+set -e
+set -u
+
+srcdir=$(dirname "$(readlink -f "$0")")
+
+quiet=false
+
+function usage {
+  if ! $quiet; then
+    echo "This script runs \"serverprog\" to start an NBD server locally and attaches it to a"
+    echo "  device file. serverprog should be an incantation of nbdcpp_main; see the ramdisk and"
+    echo "  loopback examples provided."
+    echo "Usage: $0 OPTIONS serverprog [serverprog_options...]"
+    echo "  serverprog must be a compiled executable which calls nbdcpp_main"
+    echo "    and accepts the remaining options."
+    echo "OPTIONS are [-f] [-q] [-l logfile] [-d /dev/nbdX] [-k killer] [-u socketfile]:"
+    echo "  -f: run the server in the foreground (default: runs as a daemon in the background)"
+    echo "  -q: suppress all output except for the device name"
+    echo "  -l logfile: append server messages to the given file."
+    echo "              By default, a temp file is used unless -f is specified."
+    echo "  -d device: Use the specified nbd device (default: find the first unused nbd device)"
+    echo "  -k killer: create a script with this filaname that can cleanly disconnect the device"
+    echo "             (will be created with a default name unless running with -f)"
+    echo "  -u socketfile: specify local filename for the unix socket (default: create a temp file)"
+  fi
+  [[ $# -eq 1 ]] && exit $1
+}
+
+sockfile=""
+templog=true
+daemonize=true
+devfile=""
+killfile=""
+
+# process initial options
+while [[ $# -ge 1 ]]; do
+  if [[ $1 = '-f' ]]; then
+    daemonize=false
+  elif [[ $1 = '-q' ]]; then
+    quiet=true
+  elif [[ $1 = '-l' ]]; then
+    [[ $# -ge 2 && ! $2 =~ ^- ]] || usage 1
+    logfile=$(readlink -f "$2")
+    templog=false
+    shift
+  elif [[ $1 = '-d' ]]; then
+    [[ $# -ge 2 && ! $2 =~ ^- ]] || usage 1
+    [[ $2 =~ / ]] && devfile=$(readlink -f "$2") || devfile="/dev/$2"
+    shift
+  elif [[ $1 = '-k' ]]; then
+    [[ $# -ge 2 && ! $2 =~ ^- ]] || usage 1
+    killfile=$(readlink -f "$2")
+    shift
+  elif [[ $1 = '-u' ]]; then
+    [[ $# -ge 2 && ! $2 =~ ^- ]] || usage 1
+    sockfile=$(readlink -f "$2")
+    shift
+  else
+    break
+  fi
+  shift
+done
+
+[[ $# -ge 1 ]] || usage 1
+[[ $1 =~ ^- ]] && usage 1
+
+# get the name of the server program
+server=$(readlink -f "$1")
+[[ -x $server ]] || usage 1
+shift
+
+# check if we need sudo
+[[ $(id -u) -eq 0 ]] && getroot="" || getroot="sudo"
+
+# check that nbd module is loaded
+if ! grep -q '^nbd ' /proc/modules; then
+  # nbd module not yet loaded
+  $quiet || echo "loading nbd module..."
+  if ! $getroot modprobe nbd; then
+    if ! $quiet; then
+      echo "ERROR: could not load nbd module"
+      echo "Are you running a recent Linux kernel with the modprobe command?"
+      echo "Perhaps you need to install the kmod package?"
+    fi
+    exit 2
+  fi
+fi
+
+# find the nbd-client executable
+# first try the normal path
+if ! nbdc=$(which nbd-client); then
+  gotit=false
+  # next try a few other likely paths
+  for dir in "/usr/local/sbin" "/usr/sbin" "/sbin"; do
+    nbdc="$dir/nbd-client"
+    if [[ -x $nbdc ]]; then
+      gotit=true
+      break
+    fi
+  done
+  if ! $gotit; then
+    # try sudo which as a last resort
+    if ! nbdc=$($getroot which nbd-client); then
+      if ! $quiet; then
+        echo "ERROR: no nbd-client program found"
+        echo "Perhaps you need to install the nbd-client package?"
+        exit 2
+      fi
+    fi
+  fi
+fi
+
+# automatically determine device file, if necessary
+if [[ -z $devfile ]]; then
+  i=0
+  while true; do
+    devfile="/dev/nbd$i"
+    # break if device doesn't exist or if it's not already in use
+    if [[ ! -e $devfile ]] || ! "$nbdc" -c "$devfile" >/dev/null; then
+      break
+    fi
+    : $(( i++ ))
+  done
+fi
+if [[ ! -e $devfile ]]; then
+  $quiet || echo "ERROR: device $devfile does not exist; unable to proceed"
+  exit 3
+fi
+
+# make a killfile name if necessary
+if [[ -z $killfile ]]; then
+  if $daemonize; then
+    # user-friendly name
+    killfile="stop-$(basename "$devfile")"
+  else
+    killfile=$(mktemp --tmpdir nbdkill.XXXXXXXXXX.sh)
+    rm -f "$killfile"
+  fi
+fi
+if [[ -e $killfile ]]; then
+  if ! $quiet; then
+    read -n1 -p "Kill script $killfile already exists. Delete it? [Y/n] " yn
+    [[ -z $yn || $yn =~ [yY] ]] || exit 1
+  fi
+fi
+if ! touch "$killfile"; then
+  $quiet || echo "Error: cannot write kill script $killfile"
+  exit 3
+fi
+
+# create temp file for log if necessary
+if $templog; then
+  if $daemonize; then
+    logfile=$(mktemp --tmpdir nbdlog.XXXXXXXXXX.txt)
+  else
+    $quiet && logfile="" || logfile=/dev/stderr
+    templog=false
+  fi
+else
+  if ! touch "$logfile"; then
+    $quiet || echo "ERROR: need write access to log file $logfile"
+    rm -f "$killfile"
+    exit 3
+  fi
+fi
+
+# create temp file for socket if necessary
+if [[ -z $sockfile ]]; then
+  sockfile=$(mktemp --tmpdir nbdsock.XXXXXXXXXX)
+elif [[ -e $sockfile ]]; then
+  if ! $quiet; then
+    read -n1 -p "Socket file $sockfile already exists. Delete it? [Y/n] " yn
+    [[ -z $yn || $yn =~ [yY] ]] || exit 1
+  fi
+  if ! touch "$sockfile"; then
+    $quiet || echo "ERROR: need write access to socket file $sockfile"
+    rm -f "$killfile"
+    $templog && rm -f "$logfile"
+    exit 3
+  fi
+fi
+
+# now remove the socket file to avoid error message when server starts
+rm -f "$sockfile"
+
+# start the actual server process and save its pid and blocksize
+if ! sinfo=($("$server" "$@" -q -u "$sockfile" ${logfile:+-l "$logfile"} -d))
+then
+  $quiet || echo "ERROR starting the server (see above)"
+  rm -f "$killfile"
+  $templog && rm -f "$logfile"
+  rm -f "$sockfile"
+  exit 4
+fi
+
+# create the kill script
+exec 4>"$killfile"
+cat >&4 <<EOF
+#!/usr/bin/env bash
+
+quiet=$quiet
+
+# check running as root
+if [[ \$(id -u) -ne 0 ]]; then
+  \$quiet || echo "Must be run as root; attempting sudo..."
+  sudo "\$0"
+  exit \$?
+fi
+
+devfile="$devfile"
+server_pid="${sinfo[0]}"
+sockfile="$sockfile"
+EOF
+$templog && echo "logfile=\"$logfile\"" >&4
+cat >&4 <<EOF
+
+\$quiet || echo "Disconnecting the nbd device..."
+nbd-client -d "\$devfile" >/dev/null
+\$quiet || echo "Stopping the server..."
+kill -INT \$server_pid
+wait \$server_pid 2>/dev/null
+\$quiet || echo "Cleaning up files..."
+rm -f "\$sockfile"
+EOF
+$templog && echo "rm -f \"\$logfile\"" >&4
+cat >&4 <<EOF
+rm -f "$(readlink -f "$killfile")" # self-destruct
+\$quiet || echo "The nbd server has been successfully stopped."
+EOF
+exec 4>&-
+chmod +x "$killfile"
+
+# wait until the server is listening
+while [[ ! -e $sockfile ]]; do
+  sleep 0.1
+done
+
+# connect to the server using nbd-client
+$getroot nbd-client -Nx -block-size "${sinfo[1]}" -u "$sockfile" "$devfile" >/dev/null 2>&1
+
+if $daemonize; then
+  if $quiet; then
+    echo "$devfile"
+  else
+    echo "The device is ready at $devfile"
+    echo "Log message are stored in $logfile"
+    echo "Run the script $killfile to close."
+  fi
+  exit 0
+else
+  if $quiet; then
+    trap ':' SIGINT
+    echo "$devfile"
+  else
+    trap 'echo "Caught SIGINT - beginning shutdown"' SIGINT
+    echo "Device is running on $devfile"
+    echo "Hit Ctrl-C (or send SIGINT to pid $$) to close the device"
+  fi
+  set +e
+  sleep inf &
+  sleeper=$!
+  wait $sleeper 2>/dev/null
+  kill $sleeper
+  wait $sleeper 2>/dev/null
+  $getroot "$killfile"
+  exit 0
+fi

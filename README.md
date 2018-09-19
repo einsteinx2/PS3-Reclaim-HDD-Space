@@ -50,7 +50,7 @@ Once you know the correct offsets, changing the values is simple. To adjust the 
 11. Dump the superblock of the GameOS partition: `dd if=/dev/mapper/ps3hdd_crypt2 bs=512 count=256 of=GameOS_superblock.img`
 12. Confirm the seek values for the next 2 commands: `./find_ps3_ufs2_byte_locations GameOS_superblock.img`
 13. Set minimum free space to 1%: `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65599 count=1 conv=notrunc`
-14. Set optimization type to `space`: `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65667 count=1 conv=notrunc`
+14. Set optimization type to "space": `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65667 count=1 conv=notrunc`
 15. View the now larger free space: `mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2 && umount /mnt/PS3GameOS`
 16. Disconnect device: `kpartx -d /dev/mapper/ps3hdd_crypt && cryptsetup remove ps3hdd_crypt && ./stop-nbd0`
 17. Pop the drive back in your PS3 and enjoy the extra space!

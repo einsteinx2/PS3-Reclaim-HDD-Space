@@ -1,6 +1,6 @@
 ## The What
 
-By default, even on custom firmware, the PS3 reserves 8% of your total internal hard drive space. From my searching online, I don't believe anyone has ever successfully unlocked that wasted space, so I decided to give it a shot. Turns out not only is it possible, but it's relatively easy thanks to some existing tools created by the community. This guide will explain how to reclaim that wasted space by manually modifying the metadata of the UFS2 formatted GameOS partition using Linux, as well as the potential cons (primarily performance, though I haven't expereinced any performance issues yet myself). 
+By default, even on custom firmware, the PS3 reserves 8% of your total internal hard drive space. From my searching online, I don't believe anyone has ever successfully unlocked that wasted space, so I decided to give it a shot. Turns out not only is it possible, but it's relatively easy thanks to some existing tools created by the community. This guide will explain how to reclaim that wasted space by manually modifying the metadata of the UFS2 formatted GameOS partition using Linux, as well as the potential cons (primarily performance, though I haven't experienced any performance issues yet myself). 
 
 I believe the pros outweigh the cons though, and have been using this now without issue on my personal PS3 with a 1.5TB drive for a few days now, installing tons of games without a hitch.
 

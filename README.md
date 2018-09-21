@@ -36,24 +36,24 @@ Once you know the correct offsets, changing the values is simple. To adjust the 
 2. Setup a computer or virtual machine with Ubuntu 16.04. The rest of these steps are done on that machine. I tested using Parallels on a MacBook Pro, but it should work on just about anything as well as other distros.
 3. Clone this repository: `git clone https://github.com/einsteinx2/PS3-Reclaim-HDD-Space.git`
 4. Change to the new directory as we'll do all of the work there: `cd PS3-Reclaim-HDD-Space`
-3. Rename your eid root key file to `eid_root_key.bin` and place it in the PS3-Reclaim-HDD-Space directory  
-3. Generate your hdd keys: `./ps3hdd_keygen.sh`
-4. Become root since most of this requires it: `sudo -s`
-5. Find the device name: `fdisk -l` (In my case, using an external USB enclosure, it was `/dev/sdb`)
-6. Make virtual byte swapped encrypted device
+5. Rename your eid root key file to `eid_root_key.bin` and place it in the PS3-Reclaim-HDD-Space directory  
+6. Generate your hdd keys: `./ps3hdd_keygen.sh`
+7. Become root since most of this requires it: `sudo -s`
+8. Find the device name: `fdisk -l` (In my case, using an external USB enclosure, it was `/dev/sdb`)
+9. Make virtual byte swapped encrypted device
 	1. If you have a drive 1TB or less (not confirmed the exact limit): `./makedev bswap16.512 /dev/sdb`
 	2. If you have a drive larger than 1TB (or maybe it's 1TB and larger, I don't have a 1TB drive to test): `./makedev bswap16.1024 /dev/sdb`
-7. Create decrypted device: `cryptsetup create -c aes-xts-plain64 -d ./hdd_key.bin -s 256 ps3hdd_crypt /dev/nbd0`
-8. Map decrypted partitions: `./kpartx -a /dev/mapper/ps3hdd_crypt`
-9. View decrypted partitions (ps3hdd_crypt2 is the UFS2 GameOS partition): `ls -la /dev/mapper/`
-10. View current free space: `[ -d /mnt/PS3GameOS ] || mkdir /mnt/PS3GameOS && mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2" && umount /mnt/PS3GameOS`
-11. Dump the superblock of the GameOS partition: `dd if=/dev/mapper/ps3hdd_crypt2 bs=512 count=256 of=GameOS_superblock.img`
-12. Confirm the seek values for the next 2 commands: `./find_ps3_ufs2_byte_locations GameOS_superblock.img`
-13. Set minimum free space to 1%: `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65599 count=1 conv=notrunc`
-14. Set optimization type to "space": `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65667 count=1 conv=notrunc`
-15. View the now larger free space: `mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2 && umount /mnt/PS3GameOS`
-16. Disconnect device: `kpartx -d /dev/mapper/ps3hdd_crypt && cryptsetup remove ps3hdd_crypt && ./stop-nbd0`
-17. Pop the drive back in your PS3 and enjoy the extra space! Note that I left 1% reserved space rather than going all the way to 0% to ensure that the drive never completely fills up, as I'm unsure what problems that would cause for the PS3's operating system.
+10. Create decrypted device: `cryptsetup create -c aes-xts-plain64 -d ./hdd_key.bin -s 256 ps3hdd_crypt /dev/nbd0`
+11. Map decrypted partitions: `./kpartx -a /dev/mapper/ps3hdd_crypt`
+12. View decrypted partitions (ps3hdd_crypt2 is the UFS2 GameOS partition): `ls -la /dev/mapper/`
+13. View current free space: `[ -d /mnt/PS3GameOS ] || mkdir /mnt/PS3GameOS && mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2" && umount /mnt/PS3GameOS`
+14. Dump the superblock of the GameOS partition: `dd if=/dev/mapper/ps3hdd_crypt2 bs=512 count=256 of=GameOS_superblock.img`
+15. Confirm the seek values for the next 2 commands: `./find_ps3_ufs2_byte_locations GameOS_superblock.img`
+16. Set minimum free space to 1%: `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65599 count=1 conv=notrunc`
+17. Set optimization type to "space": `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65667 count=1 conv=notrunc`
+18. View the now larger free space: `mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2 && umount /mnt/PS3GameOS`
+19. Disconnect device: `kpartx -d /dev/mapper/ps3hdd_crypt && cryptsetup remove ps3hdd_crypt && ./stop-nbd0`
+20. Pop the drive back in your PS3 and enjoy the extra space! Note that I left 1% reserved space rather than going all the way to 0% to ensure that the drive never completely fills up, as I'm unsure what problems that would cause for the PS3's operating system.
 
 ## Source code
 

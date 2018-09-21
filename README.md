@@ -30,6 +30,8 @@ I tested this on 2 hard drives of vastly different sizes: 160 GB and 1.5 TB. On 
 
 Once you know the correct offsets, changing the values is simple. To adjust the minimum free space, simply write the percent in hex to byte 65,599--e.g. for 1% free space write 0x01 or for the default 8% write 0x08. To change the optimization type, write a hex 0x01 to byte 65,667--the default is 0x00 for time optimization.
 
+I think this should be possible to do as a PS3 homebrew app so that it can just be done directly on the device without even removing the drive. Unfortunately I have zero experience with writing PS3 homebrew, but maybe someone else with more experience can use this information to do it. I'd love to see this as an option in the REBUG custom firmware settings.
+
 ## Instructions
 
 1. Dump your eid root key using IrisMan/MultiMan/etc

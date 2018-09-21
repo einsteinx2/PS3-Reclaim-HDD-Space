@@ -53,7 +53,7 @@ Once you know the correct offsets, changing the values is simple. To adjust the 
 14. Set optimization type to "space": `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65667 count=1 conv=notrunc`
 15. View the now larger free space: `mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2 && umount /mnt/PS3GameOS`
 16. Disconnect device: `kpartx -d /dev/mapper/ps3hdd_crypt && cryptsetup remove ps3hdd_crypt && ./stop-nbd0`
-17. Pop the drive back in your PS3 and enjoy the extra space!
+17. Pop the drive back in your PS3 and enjoy the extra space! Note that I left 1% reserved space rather than going all the way to 0% to ensure that the drive never completely fills up, as I'm unsure what problems that would cause for the PS3's operating system.
 
 ## Source code
 

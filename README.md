@@ -53,7 +53,7 @@ I think this should be possible to do as a PS3 homebrew app so that it can just 
 15. Confirm the seek values for the next 2 commands: `./find_ps3_ufs2_byte_locations GameOS_superblock.img`
 16. Set minimum free space to 1%: `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65599 count=1 conv=notrunc`
 17. Set optimization type to "space": `printf '\x01' | dd of=/dev/mapper/ps3hdd_crypt2 bs=1 seek=65667 count=1 conv=notrunc`
-18. View the now larger free space: `mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2 && umount /mnt/PS3GameOS`
+18. View the now larger free space: `mount -t ufs -o ufstype=ufs2,ro /dev/mapper/ps3hdd_crypt2 /mnt/PS3GameOS && df -h | grep "Avail\|ps3hdd_crypt2" && umount /mnt/PS3GameOS`
 19. Disconnect device: `kpartx -d /dev/mapper/ps3hdd_crypt && cryptsetup remove ps3hdd_crypt && ./stop-nbd0`
 20. Pop the drive back in your PS3 and enjoy the extra space! Note that I left 1% reserved space rather than going all the way to 0% to ensure that the drive never completely fills up, as I'm unsure what problems that would cause for the PS3's operating system.
 

@@ -67,8 +67,6 @@ For ease of use, this repo contains precompiled binaries for Ubuntu 16.04 64bit.
 
 **ps3hdd_keygen.sh**: http://www.psx-place.com/threads/hdd-keys-generating-scripts.10610/page-2#post-125197
 
-**makedev**: This was included in binary form in the nbdcpp repo, so I never had the source code.
-
 ## Credits
 
 I would never have figured this out if it weren't for others' hard work. 

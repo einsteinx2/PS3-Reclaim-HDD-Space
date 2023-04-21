@@ -63,7 +63,7 @@ For ease of use, this repo contains precompiled binaries for Ubuntu 16.04 64bit.
 
 **bswap16**: https://github.com/sguerrini97/nbdcpp (note that for >1TB drives you must change `<unsigned BS=512>` to `<unsigned BS=1024>`)
 
-**kpartx**: https://git.opensvc.com/multipath-tools/.git/
+**kpartx**: https://github.com/opensvc/multipath-tools
 
 **ps3hdd_keygen.sh**: http://www.psx-place.com/threads/hdd-keys-generating-scripts.10610/page-2#post-125197
 
